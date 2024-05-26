@@ -11,7 +11,7 @@ router.route("/").post(createStudent)
 // Get Single Student by ID
 router.route("/:id").get(getStudent)
 
-// Updae Single Student by ID
+// Update Single Student by ID
 router.route("/:id").put(updateStudent)
 
 
