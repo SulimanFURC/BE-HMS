@@ -9,6 +9,7 @@ PORT = process.env.PORT || 5000;
 app.use(express.json());
 app.use("/api/students", require("./Routes/studentRoutes"));
 app.use("/api/expenses", require("./Routes/expenseRoutes"));
+app.use("/api/room", require("./Routes/roomRoutes"));
 app.use(errorHandler);
 
 // Serve static files from the uploads directory
