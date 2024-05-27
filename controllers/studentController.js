@@ -82,38 +82,69 @@ const createStudent = asyncHandler(async (req, res) => {
 //@decs Update student
 //@route GET /api/students
 //@access Public
-const updateStudent = asyncHandler(async(req, res) => {
+const updateStudent = asyncHandler(async (req, res) => {
     uploadImage(req, res, async (err) => {
-        if(err) {
-            res.status(400).json({message: err.message});
+        if (err) {
+            return res.status(400).json({ message: err.message });
         }
+
         const studentId = req.params.id;
+        const { name, cnic, admissionDate, basicRent, contactNo, bloodGroup, address, secondaryContactNo, email } = req.body;
         const picture = req.file ? req.file.path : null;
 
         try {
-            const [rows] = db.query('UPDATE tbl_students SET ? WHERE stdID = ?', [studentId]);
-            if(rows.length === 0) {
-                res.status(400).json({message: "Record Not Found"})
-                return;
+            // Check if the student exists
+            const [rows] = await db.query('SELECT * FROM tbl_students WHERE stdID = ?', [studentId]);
+            if (rows.length === 0) {
+                return res.status(404).json({ message: "Record Not Found" });
             }
-            if(picture && rows[0].picture) {
+
+            // If a new picture is uploaded, delete the old one
+            if (picture && rows[0].picture) {
                 fs.unlinkSync(rows[0].picture);
             }
-            const [result] = await db.query("UPDATE tbl_students SET name = ?, cnic = ?, admissionDate = ?, basicRent = ?, contactNo = ?, bloodGroup = ?, address = ?, secondaryContactNo = ?, email = ?, picture = ? WHERE stdID = ?",
-            [name, cnic, admissionDate, basicRent, contactNo, bloodGroup, address, secondaryContactNo, email, picture || rows[0].picture, studentId]);
-            res.status(200).json({ message: 'Record updated', studentId: studentId });
+
+            // Update the student record
+            const [result] = await db.query(
+                `UPDATE tbl_students 
+                SET name = ?, cnic = ?, admissionDate = ?, basicRent = ?, contactNo = ?, bloodGroup = ?, address = ?, secondaryContactNo = ?, email = ?, picture = ? 
+                WHERE stdID = ?`,
+                [name, cnic, admissionDate, basicRent, contactNo, bloodGroup, address, secondaryContactNo, email, picture || rows[0].picture, studentId]
+            );
+
+            return res.status(200).json({ message: 'Record updated', studentId: studentId });
         } catch (err) {
-            res.status(500).json({message: err.message});
+            return res.status(500).json({ message: err.message });
         }
-    })
-    // res.status(200).json({message: `Update Single Student for id: ${req.params.id}`});
-})
+    });
+});
 
 //@decs Delete student
 //@route GET /api/students
 //@access Public
-const deleteStudent = asyncHandler(async(req, res) => {
-    res.status(200).json({message: `Delete Single Student for id: ${req.params.id}`});
+ const deleteStudent = asyncHandler(async(req, res) => {
+    const studentId = req.params.id;
+
+    try {
+        // Check if the student exists
+        const [rows] = await db.query('SELECT * FROM tbl_students WHERE stdID = ?', [studentId]);
+        if (rows.length === 0) {
+            res.status(404).json({ message: 'Record Not Found' });
+            return;
+        }
+
+        // Delete the associated image file if it exists
+        if (rows[0].picture) {
+            fs.unlinkSync(rows[0].picture);
+        }
+
+        // Delete the student record
+        await db.query('DELETE FROM tbl_students WHERE stdID = ?', [studentId]);
+
+        res.status(200).json({ message: 'Record deleted', studentId: studentId });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
 })
 
 
