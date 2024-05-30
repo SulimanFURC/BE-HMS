@@ -35,8 +35,42 @@ const registerUser = asyncHandler(async (req, res) => {
 //@route POST /api/user/login
 //@access Public
 const loginUser = asyncHandler(async (req, res) => {
-    try {
+    const { email, password } = req.body;
 
+    if (!email || !password) {
+        return res.status(400).json({ message: 'Please provide email and password' });
+    }
+    try {
+        // Check if user exists
+        const [rows] = await db.query('SELECT * FROM tbl_user WHERE email = ?', [email]);
+
+        if (rows.length === 0) {
+            return res.status(401).json({ message: 'Invalid email or password' });
+        }
+
+        const user = rows[0];
+
+        // Validate password
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+
+        if (!isPasswordValid) {
+            return res.status(401).json({ message: 'Invalid email or password' });
+        }
+
+        if(user && isPasswordValid) { 
+            // Generate JWT token
+            const token = jwt.sign({
+                user: { 
+                    id: user.id, 
+                    username: user.username, 
+                    email: user.email
+                }, 
+            },
+            process.env.JWT_SECRET, 
+            { expiresIn: '1h' }
+        );
+            res.status(200).json({ token });
+        }
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
@@ -48,7 +82,7 @@ const loginUser = asyncHandler(async (req, res) => {
 //@access Public
 const currentUser = asyncHandler(async (req, res) => {
     try {
-
+        res.status(200).json(req.user);
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
