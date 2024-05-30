@@ -20,11 +20,10 @@ const createRoom = asyncHandler(async (req, res)=> {
     const { totalCapacity, occupied, attachBath, description} = req.body;
     try {
         const [result] = await db.query("INSERT INTO tbl_room (totalCapacity, occupied, attachBath, description) VALUES (?, ?, ?, ?)", [totalCapacity, occupied, attachBath, description]);
-        res.status(200).json({message: "Room Created", roomID: result.insertId});
+        res.status(201).json({message: "Room Created", roomID: result.insertId});
     } catch (err) {
         res.status(500).json({message: err})
     }
-    res.status(200).json({message: "Create Room"});
 })
 
 //@decs Update Room
@@ -40,7 +39,7 @@ const updateRoom = asyncHandler(async (req, res) => {
             return;
         }
         const [result] = await db.query("UPDATE tbl_room SET totalCapacity = ?, occupied = ?, attachBath = ?, description = ? WHERE roomId = ?", [totalCapacity, occupied, attachBath, description, roomId]);
-        res.status("200").json({message: `Room updated: ${req.params.id}`});
+        res.status(200).json({message: `Room updated: ${req.params.id}`});
     } catch(err) {
         res.status(500).json({message: err})
     }
@@ -62,7 +61,6 @@ const deleteRoom = asyncHandler(async (req, res) => {
     } catch(err) {
         res.status(500).json({message: err});
     }
-    res.status(200).json({message: `Delete Single Room by id: ${req.params.id}`});
 })
 
 module.exports = {getRooms, createRoom, updateRoom, deleteRoom}

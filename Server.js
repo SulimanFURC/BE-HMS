@@ -10,6 +10,8 @@ app.use(express.json());
 app.use("/api/students", require("./Routes/studentRoutes"));
 app.use("/api/expenses", require("./Routes/expenseRoutes"));
 app.use("/api/room", require("./Routes/roomRoutes"));
+app.use("/api/dashboard", require("./Routes/dashboardRoutes"));
+app.use("/api/users", require("./Routes/userRoutes"));
 app.use(errorHandler);
 
 // Serve static files from the uploads directory
