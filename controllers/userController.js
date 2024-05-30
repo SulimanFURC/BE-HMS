@@ -67,9 +67,22 @@ const loginUser = asyncHandler(async (req, res) => {
                 }, 
             },
             process.env.JWT_SECRET, 
-            { expiresIn: '1h' }
-        );
-            res.status(200).json({ token });
+            { expiresIn: '1h' });
+            // Generate refresh token
+            const refreshToken = jwt.sign(
+                {
+                    user: {
+                        id: user.id,
+                        username: user.username,
+                        email: user.email
+                    },
+                },
+                process.env.REFRESH_TOKEN_SECRET,
+                { expiresIn: '7d' }
+            );
+            // Store refresh token in database
+            await db.query('UPDATE tbl_user SET refreshToken = ? WHERE id = ?', [refreshToken, user.id]);
+            res.status(200).json({ token, refreshToken });
         }
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -88,5 +101,46 @@ const currentUser = asyncHandler(async (req, res) => {
     }
 })
 
+//@decs Refresh Token
+//@route POST /api/user/refreshToken
+//@access Private
+const refreshToken = asyncHandler(async (req, res, next) => {
+    const { token } = req.body;
 
-module.exports = {registerUser, loginUser, currentUser}
+    if (!token) {
+        return res.status(400).json({ message: 'Refresh Token is required' });
+    }
+
+    try {
+        const decoded = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET);
+
+        // Check if token is valid and exists in the database
+        const [rows] = await db.query('SELECT * FROM tbl_user WHERE id = ? AND refreshToken = ?', [decoded.user.id, token]);
+
+        if (rows.length === 0) {
+            return res.status(401).json({ message: 'Invalid Refresh Token' });
+        }
+
+        const user = rows[0];
+
+        // Generate new access token
+        const accessToken = jwt.sign(
+            {
+                user: {
+                    id: user.id,
+                    username: user.username,
+                    email: user.email
+                },
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: '1h' }
+        );
+
+        res.status(200).json({ accessToken });
+    } catch (err) {
+        next(err);
+    }
+});
+
+
+module.exports = {registerUser, loginUser, currentUser, refreshToken}

@@ -4,19 +4,19 @@ const {getExpenses, getExpense, createExpense, updateExpense, deleteExpense} = r
 const { validateToken } = require("../middleware/validateTokenHandler");
 
 // Get all Expenses
-router.route("/").get(validateToken, getExpenses)
+router.route("/getAllExpenses").get(validateToken, getExpenses)
 
 // Get Expense by id
-router.route("/:id").get(validateToken, getExpense)
+router.route("/getExpenseById/:id").get(validateToken, getExpense)
 
 // Create Expense
-router.route("/").post(validateToken, createExpense)
+router.route("/createExpense").post(validateToken, createExpense)
 
 // Update Expense by id
-router.route("/:id").put(validateToken, updateExpense)
+router.route("/updateExpense/:id").put(validateToken, updateExpense)
 
 // Delete Expense by id
-router.route("/:id").delete(validateToken, deleteExpense)
+router.route("/deleteExpense/:id").delete(validateToken, deleteExpense)
 
 
 module.exports = router;

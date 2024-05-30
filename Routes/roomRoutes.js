@@ -4,16 +4,16 @@ const {getRooms, createRoom, updateRoom, deleteRoom} = require("../controllers/r
 const { validateToken } = require("../middleware/validateTokenHandler");
 
 // Get all Rooms
-router.route("/").get(validateToken, getRooms)
+router.route("/getAllRooms").get(validateToken, getRooms)
 
 // Create Room
-router.route("/").post(validateToken, createRoom)
+router.route("/createRoom").post(validateToken, createRoom)
 
 // Update Room by id
-router.route("/:id").put(validateToken, updateRoom)
+router.route("/updateRoom/:id").put(validateToken, updateRoom)
 
 // Delete Room by id
-router.route("/:id").delete(validateToken, deleteRoom)
+router.route("/deleteRoom/:id").delete(validateToken, deleteRoom)
 
 
 module.exports = router;

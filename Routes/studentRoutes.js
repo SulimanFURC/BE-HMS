@@ -4,19 +4,19 @@ const {getStudents, getStudent, createStudent, updateStudent, deleteStudent} = r
 const { validateToken } = require("../middleware/validateTokenHandler");
 
 // Get all students 
-router.route("/").get(validateToken, getStudents)
+router.route("/getAllStudents").get(validateToken, getStudents)
 
 // Create Student
-router.route("/").post(validateToken, createStudent)
+router.route("/createStudent").post(validateToken, createStudent)
 
 // Get Single Student by ID
-router.route("/:id").get(validateToken, getStudent)
+router.route("/getStudentById/:id").get(validateToken, getStudent)
 
 // Update Single Student by ID
-router.route("/:id").put(validateToken, updateStudent)
+router.route("/updateStudent/:id").put(validateToken, updateStudent)
 
 
 // Delete Single Student by ID
-router.route("/:id").delete(validateToken, deleteStudent)
+router.route("/deleteStudent/:id").delete(validateToken, deleteStudent)
 
 module.exports = router;
