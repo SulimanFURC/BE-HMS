@@ -4,7 +4,12 @@ const connection = require("./config/dbConnection");
 const dotenv = require("dotenv").config();
 const path = require("path")
 const app = express();
+const cors = require("cors");
+
 PORT = process.env.PORT || 5000;
+
+// Configure CORS to allow requests from http://localhost:4200
+app.use(cors({ origin: 'http://localhost:4200' }));
 
 app.use(express.json());
 app.use("/api/students", require("./Routes/studentRoutes"));
