@@ -28,4 +28,10 @@ const upload = multer({
     limits: { fileSize: 1024 * 1024 * 5 } // 5MB limit
 });
 
-module.exports = upload;
+const uploadImage = upload.fields([
+    { name: 'picture', maxCount: 1 },
+    { name: 'cnic_front', maxCount: 1 },
+    { name: 'cnic_back', maxCount: 1 }
+]);
+
+module.exports = uploadImage;
