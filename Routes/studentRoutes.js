@@ -11,10 +11,10 @@ router.route("/getAllStudents").get(validateToken, getStudents)
 router.route("/createStudent").post(validateToken, uploadImage, createStudent)
 
 // Get Single Student by ID
-router.route("/getStudentById/:id").get(validateToken, getStudent)
+router.route("/getStudentById").post(validateToken, getStudent)
 
 // Update Single Student by ID
-router.route("/updateStudent/:id").put(validateToken, updateStudent)
+router.route("/updateStudent").put(validateToken, updateStudent)
 
 
 // Delete Single Student by ID

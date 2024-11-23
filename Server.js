@@ -6,6 +6,7 @@ const path = require("path")
 const app = express();
 const cors = require("cors");
 const bodyParser = require('body-parser');
+const requestLogger = require("./middleware/logger");
 
 PORT = process.env.PORT || 5000;
 
@@ -18,11 +19,16 @@ app.use(cors({ origin: '*' }));
 
 app.use(express.json());
 
+// request middleware for all request 
+app.use(requestLogger); 
+
 app.use("/api/students", require("./Routes/studentRoutes"));
 app.use("/api/expenses", require("./Routes/expenseRoutes"));
 app.use("/api/room", require("./Routes/roomRoutes"));
 app.use("/api/dashboard", require("./Routes/dashboardRoutes"));
 app.use("/api/users", require("./Routes/userRoutes"));
+
+// Error Middleware 
 app.use(errorHandler);
 
 // Serve static files from the uploads directory
