@@ -4,20 +4,21 @@ const {getStudents, getStudent, createStudent, updateStudent, deleteStudent} = r
 const { validateToken } = require("../middleware/validateTokenHandler");
 const uploadImage = require("../config/multer");
 
+router.use(validateToken)
 // Get all students 
-router.route("/getAllStudents").get(validateToken, getStudents)
+router.route("/getAllStudents").get(getStudents)
 
 // Create Student
-router.route("/createStudent").post(validateToken, uploadImage, createStudent)
+router.route("/createStudent").post(uploadImage, createStudent)
 
 // Get Single Student by ID
-router.route("/getStudentById").post(validateToken, getStudent)
+router.route("/getStudentById").post(getStudent)
 
 // Update Single Student by ID
-router.route("/updateStudent").put(validateToken, updateStudent)
+router.route("/updateStudent").put(updateStudent)
 
 
 // Delete Single Student by ID
-router.route("/deleteStudent").delete(validateToken, deleteStudent)
+router.route("/deleteStudent").delete(deleteStudent)
 
 module.exports = router;
