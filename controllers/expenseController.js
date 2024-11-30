@@ -1,11 +1,11 @@
 const asyncHandler = require("express-async-handler");
 const db = require("../config/dbConnection");
-const upload = require('../config/multer');
+const uploadImage = require('../config/multer');
 const path = require('path');
 const fs = require("fs")
 
 // Middleware to handle image uploads
-const uploadImage = upload.single('expAttachment');
+// const uploadImage = upload.single('expAttachment');
 
 //@decs Get all expenses
 //@route GET /api/expense

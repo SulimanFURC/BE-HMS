@@ -2,21 +2,23 @@ const express = require("express")
 const router = express.Router();
 const {getStudents, getStudent, createStudent, updateStudent, deleteStudent} = require("../controllers/studentController");
 const { validateToken } = require("../middleware/validateTokenHandler");
+const uploadImage = require("../config/multer");
 
+router.use(validateToken)
 // Get all students 
-router.route("/getAllStudents").get(validateToken, getStudents)
+router.route("/getAllStudents").get(getStudents)
 
 // Create Student
-router.route("/createStudent").post(validateToken, createStudent)
+router.route("/createStudent").post(uploadImage, createStudent)
 
 // Get Single Student by ID
-router.route("/getStudentById/:id").get(validateToken, getStudent)
+router.route("/getStudentById").post(getStudent)
 
 // Update Single Student by ID
-router.route("/updateStudent/:id").put(validateToken, updateStudent)
+router.route("/updateStudent").put(updateStudent)
 
 
 // Delete Single Student by ID
-router.route("/deleteStudent/:id").delete(validateToken, deleteStudent)
+router.route("/deleteStudent").delete(deleteStudent)
 
 module.exports = router;
