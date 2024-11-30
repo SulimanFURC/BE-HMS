@@ -2,6 +2,7 @@ const express = require("express")
 const router = express.Router();
 const {getExpenses, getExpense, createExpense, updateExpense, deleteExpense} = require("../controllers/expenseController");
 const { validateToken } = require("../middleware/validateTokenHandler");
+const uploadImage = require("../config/multer");
 
 router.use(validateToken);
 
@@ -9,10 +10,10 @@ router.use(validateToken);
 router.route("/getAllExpenses").get(getExpenses)
 
 // Get Expense by id
-router.route("/getExpenseById/:id").get(getExpense)
+router.route("/getExpenseById").post(getExpense)
 
 // Create Expense
-router.route("/createExpense").post(createExpense)
+router.route("/createExpense").post(uploadImage, createExpense)
 
 // Update Expense by id
 router.route("/updateExpense/:id").put(updateExpense)
