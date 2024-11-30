@@ -21,12 +21,6 @@ app.use(express.json());
 
 // request middleware for all request 
 app.use(requestLogger); 
-
-app.use("/home", (req, res) => {
-    res.json({
-        message: "Hello World"
-    })
-})
 app.use("/api/students", require("./Routes/studentRoutes"));
 app.use("/api/expenses", require("./Routes/expenseRoutes"));
 app.use("/api/room", require("./Routes/roomRoutes"));
