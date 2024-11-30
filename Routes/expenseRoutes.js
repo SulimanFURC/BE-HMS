@@ -16,10 +16,10 @@ router.route("/getExpenseById").post(getExpense)
 router.route("/createExpense").post(uploadImage, createExpense)
 
 // Update Expense by id
-router.route("/updateExpense/:id").put(updateExpense)
+router.route("/updateExpense").put(updateExpense)
 
 // Delete Expense by id
-router.route("/deleteExpense/:id").delete(deleteExpense)
+router.route("/deleteExpense").delete(deleteExpense)
 
 
 module.exports = router;

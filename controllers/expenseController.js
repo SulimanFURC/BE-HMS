@@ -112,65 +112,85 @@ const createExpense = asyncHandler(async (req, res)=> {
 //@route GET /api/expense
 //@access Public
 const updateExpense = asyncHandler(async (req, res) => {
-    uploadImage(req, res, async (err) => {
-        if (err) {
-            return res.status(400).json({ message: err.message });
+    const {expenseID, expDate, expName, expAmount, expPaymentMode, description, expAttachment } = req.body;
+    try {
+        // Validate required fields
+        if (!expenseID) {
+            return res.status(400).json({ message: 'Expense ID is required' });
         }
 
-        const expenseId = req.params.id;
-        const { expDate, expName, expAmount, expPaymentMode, description } = req.body;
-        const expAttachment = req.file ? req.file.path : null;
-
-        try {
-            // Check if the expense exists
-            const [rows] = await db.query('SELECT * FROM tbl_expense WHERE expID = ?', [expenseId]);
-            if (rows.length === 0) {
-                return res.status(404).json({ message: "Record Not Found" });
-            }
-
-            // If a new attachment is uploaded, delete the old one
-            if (expAttachment && rows[0].expAttachment) {
-                fs.unlinkSync(rows[0].expAttachment);
-            }
-
-            // Update the expense record
-            await db.query(
-                `UPDATE tbl_expense 
-                SET expDate = ?, expName = ?, expAmount = ?, expPaymentMode = ?, description = ?, expAttachment = ? 
-                WHERE expID = ?`,
-                [expDate, expName, expAmount, expPaymentMode, description, expAttachment || rows[0].expAttachment, expenseId]
-            );
-
-            return res.status(200).json({ message: 'Record updated', expenseId: expenseId });
-        } catch (err) {
-            return res.status(500).json({ message: err.message });
+        // Fetch existing student record
+        const [rows] = await db.query('SELECT * FROM tbl_expense WHERE expID = ?', [expenseID]);
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'Record Not Found' });
         }
-    });
+        const existingRecord = rows[0]; // Existing student record
+
+        // Upload new images if provided, or retain existing ones
+        const updatedExpensePictureUrl = expAttachment ? await uploadOnCloudinary(expAttachment, `Expenses/Expense-${expenseID}`, `expense-${Date.now()}.jpg`) : existingRecord.expAttachment;
+        // Update student record with provided or existing values
+        await db.query(
+            `UPDATE tbl_expense 
+            SET 
+               expDate = ?, 
+               expName = ?, 
+               expAmount = ?, 
+               expPaymentMode = ?, 
+               description = ?, 
+               expAttachment = ? 
+            WHERE expID = ?`,
+            [
+                expDate || existingRecord.expDate,
+                expName || existingRecord.expName,
+                expAmount || existingRecord.expAmount,
+                expPaymentMode || existingRecord.expPaymentMode,
+                description || existingRecord.description,
+                updatedExpensePictureUrl,
+                expenseID
+            ]
+        );
+
+        // Success response
+        res.status(200).json({ message: 'Record updated', ExpenseID: expenseID, status: 200});
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: err.message });
+    }
 });
 
 //@decs Delete Expense
 //@route GET /api/expense
 //@access Public
 const deleteExpense = asyncHandler(async (req, res) => {
-    const expenseId = req.params.id
-    try{
-        const [rows] = await db.query("SELECT * FROM tbl_expense WHERE expID = ?", [expenseId]);
-        if(rows.length === 0) {
-            res.status(404).json({message: "Record Not Found"})
+    const { expID: expenseID } = req.body; // Extract the Expense ID from the request body
+
+    try {
+        // Validate that the ID is provided
+        if (!expenseID) {
+            return res.status(400).json({ message: 'Expense ID is required' });
         }
 
+        // Check if the student exists
+        const [rows] = await db.query('SELECT * FROM tbl_expense WHERE expID = ?', [expenseID]);
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'Record not found' });
+        }
+
+        // Delete associated image files if they exist
         if (rows[0].expAttachment) {
-            const filePath = path.join(__dirname, '..', rows[0].expAttachment);
-            if (fs.existsSync(filePath)) {
-                fs.unlinkSync(filePath);
-            } else {
-                console.warn(`File not found: ${filePath}`);
+            try {
+                fs.unlinkSync(rows[0].expAttachment);
+            } catch (err) {
+                console.error('Error deleting picture file:', err.message);
             }
         }
-        await db.query("DELETE FROM tbl_expense WHERE expID = ?", [expenseId]);
-        res.status(200).json({message: `Expense No: ${req.params.id} is deleted successfully`})
-    } catch(err){
-        res.status(500).json({message: err})
+        // Delete the student record
+        await db.query('DELETE FROM tbl_expense WHERE expID = ?', [expenseID]);
+
+        res.status(200).json({ message: 'Record deleted successfully', expenseID });
+    } catch (err) {
+        console.error('Error deleting Expense record:', err.message);
+        res.status(500).json({ message: 'Server error' });
     }
 })
 
