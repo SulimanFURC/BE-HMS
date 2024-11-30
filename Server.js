@@ -1,8 +1,6 @@
 const express = require("express");
 const errorHandler = require("./middleware/errorHandler");
 const connection = require("./config/dbConnection");
-const dotenv = require("dotenv").config();
-const path = require("path")
 const app = express();
 const cors = require("cors");
 const bodyParser = require('body-parser');
@@ -26,6 +24,7 @@ app.use("/api/expenses", require("./Routes/expenseRoutes"));
 app.use("/api/room", require("./Routes/roomRoutes"));
 app.use("/api/dashboard", require("./Routes/dashboardRoutes"));
 app.use("/api/users", require("./Routes/userRoutes"));
+app.use("/api/rental", require("./Routes/rentalRoutes"));
 app.use(errorHandler);
 
 const server = app.listen(PORT, () => {

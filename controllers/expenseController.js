@@ -1,6 +1,5 @@
 const asyncHandler = require("express-async-handler");
 const db = require("../config/dbConnection");
-const uploadImage = require('../config/multer');
 const path = require('path');
 const fs = require("fs")
 const { uploadOnCloudinary } = require("../config/cloudinary");
