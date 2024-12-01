@@ -44,26 +44,76 @@ const getAllRentals = asyncHandler(async (req, res) => {
 //@route POST /api/rental
 //@access Private
 const getRentalById= asyncHandler(async (req, res) => {
-    const { rentID } = req.body; // Retrieve `studentId` from the request body
+    const { rentID } = req.body;
+
+    if (!rentID) {
+        return res.status(400).json({ message: "rentID is required." });
+    }
+
     try {
-        // Validate input
-        if (!rentID) {
-            return res.status(400).json({ message: 'rentID ID is required' });
+        // Step 1: Fetch the rental record based on RentID
+        const [rentalRecord] = await db.query(
+            `SELECT * FROM tbl_rent WHERE RentID = ?`,
+            [rentID]
+        );
+
+        if (rentalRecord.length === 0) {
+            return res.status(404).json({ message: "No rental record found.", statusCode: 404 });
         }
 
-        // Fetch student record
-        const [rows] = await db.query('SELECT * FROM tbl_rent WHERE RentID = ?', [rentID]);
-        if (rows.length === 0) {
-            return res.status(404).json({ message: 'No Record Found', statusCode: 404 });
+        const rental = rentalRecord[0];
+
+        // Step 2: Fetch all rental payments for the student (stdID)
+        const [allRentals] = await db.query(
+            `SELECT * FROM tbl_rent WHERE stdID = ? ORDER BY Year, RentPaidMonth`,
+            [rental.stdID]
+        );
+
+        // Step 3: Calculate total payments done and total dues
+        let totalPayments = 0;
+        let totalDues = 0;
+
+        for (const record of allRentals) {
+            totalPayments += parseFloat(record.PaidAmount || 0);
+            totalDues += parseFloat(record.Dues || 0);
         }
 
-        const rent = rows[0];
+        // Step 4: Fetch the student's basic rent and security fee
+        const [studentData] = await db.query(
+            `SELECT basicRent, securityFee FROM tbl_students WHERE stdID = ?`,
+            [rental.stdID]
+        );
 
-        // No need to convert paths since URLs are directly stored from Cloudinary
-        res.status(200).json(rent);
-    } catch (err) { 
+        if (studentData.length === 0) {
+            return res.status(404).json({ message: "Student record not found.", statusCode: 404 });
+        }
+
+        const { basicRent, securityFee } = studentData[0];
+
+        // Step 5: Calculate current month dues (if applicable)
+        const currentMonth = new Date().getMonth() + 1; // JavaScript months are 0-indexed
+        const currentYear = new Date().getFullYear();
+        const currentRental = allRentals.find(
+            (record) => record.RentPaidMonth === currentMonth && record.Year === currentYear
+        );
+        const currentMonthDues = currentRental ? parseFloat(currentRental.Dues || 0) : 0;
+
+        // Step 6: Return the response
+        res.status(200).json({
+            message: "Rental details fetched successfully.",
+            rentalDetails: {
+                rental, // Current rental record
+                totalPayments,
+                totalDues,
+                currentMonthDues,
+                securityFee: securityFee || 0,
+                basicRent,
+                rentalHistory: allRentals, // Complete rental payment history
+            },
+        });
+    } catch (err) {
         console.error(err);
-        res.status(500).json({ message: err.message });
+        res.status(500).json({ message: `Error fetching rental record: ${err.message}` });
     }
 })
 
@@ -79,7 +129,7 @@ const createRental = asyncHandler(async (req, res)=> {
     }
 
     try {
-        // Step 1: Fetch the student's basicRent from the student table
+        // Step 1: Fetch the student's basic rent from the student table
         const [studentResult] = await db.query(
             `SELECT basicRent FROM tbl_students WHERE stdID = ?`,
             [stdID]
@@ -92,23 +142,26 @@ const createRental = asyncHandler(async (req, res)=> {
 
         const BasicRent = studentResult[0].basicRent;
 
-        // Step 2: Fetch the last rent record to calculate dues
+        // Step 2: Fetch the most recent rent record for the student
         const [lastRentResult] = await db.query(
-            `SELECT * FROM tbl_rent WHERE stdId = ? ORDER BY Year DESC, RentPaidMonth DESC LIMIT 1`,
+            `SELECT * FROM tbl_rent WHERE stdID = ? ORDER BY Year DESC, RentPaidMonth DESC LIMIT 1`,
             [stdID]
         );
 
+        // Initialize previous dues
         let previousDues = 0;
         if (lastRentResult.length > 0) {
-            previousDues = lastRentResult[0].Dues || 0;
+            previousDues = parseFloat(lastRentResult[0].Dues) || 0;
         }
 
-        // Step 3: Calculate the total current rent and dues
-        const currentMonthRent = BasicRent + previousDues;
-        const newDues = currentMonthRent - PaidAmount;
+        // Step 3: Calculate the total rent due for the current month
+        const currentMonthRent = parseFloat(BasicRent) + parseFloat(previousDues);
 
-        // Step 4: Insert a new rent record
-        await db.query(
+        // Step 4: Calculate dues after the payment
+        const newDues = currentMonthRent - parseFloat(PaidAmount);
+
+        // Step 5: Insert the rent record
+        const [insertResult] = await db.query(
             `INSERT INTO tbl_rent 
             (stdID, RentPaidMonth, Year, RentStatus, RentType, BasicRent, PaidAmount, Dues) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -116,48 +169,164 @@ const createRental = asyncHandler(async (req, res)=> {
                 stdID,
                 RentPaidMonth,
                 Year,
-                newDues > 0 ? "Partially Paid" : "Paid", // Dynamic RentStatus
+                newDues > 0 ? "Partially Paid" : "Paid", // Determine RentStatus dynamically
                 RentType,
                 BasicRent,
                 PaidAmount,
-                newDues > 0 ? newDues : 0
+                newDues > 0 ? newDues : 0 // Ensure dues are non-negative
             ]
         );
 
-        // Step 5: Return success response
+        if (insertResult.affectedRows === 0) {
+            res.status(500);
+            throw new Error("Failed to insert the rent record.");
+        }
+
+        // Step 6: Return success response
         res.status(201).json({
             message: "Rent record created successfully.",
-            statusCode: 201,
-            // rentDetails: {
-            //     stdID,
-            //     RentPaidMonth,
-            //     Year,
-            //     RentStatus: newDues > 0 ? "Partially Paid" : "Paid",
-            //     RentType,
-            //     BasicRent,
-            //     PaidAmount,
-            //     Dues: newDues > 0 ? newDues : 0,
-            // },
+            rentDetails: {
+                stdID,
+                RentPaidMonth,
+                Year,
+                RentStatus: newDues > 0 ? "Partially Paid" : "Paid",
+                RentType,
+                BasicRent,
+                PaidAmount,
+                Dues: newDues > 0 ? newDues : 0,
+            },
         });
     } catch (error) {
         res.status(500);
         throw new Error(`Error creating rent record: ${error.message}`);
-    }     
-
+    }
 })
 
-//@decs Update expense
-//@route GET /api/expense
-//@access Public
+//@decs Update rental
+//@route GET /api/rental
+//@access Private
 const updateRental = asyncHandler(async (req, res) => {
+    const { rentID, RentPaidMonth, Year, RentStatus, RentType, PaidAmount } = req.body;
+    if (!rentID) {
+        res.status(400);
+        throw new Error("RentID is required.");
+    }
 
+    if (!RentPaidMonth || !Year || !PaidAmount) {
+        res.status(400);
+        throw new Error("Please provide all required fields (RentPaidMonth, Year, PaidAmount).");
+    }
+
+    try {
+        // Step 1: Fetch the existing rent record
+        const [existingRent] = await db.query(`SELECT * FROM tbl_rent WHERE RentID = ?`, [rentID]);
+
+        if (existingRent.length === 0) {
+            res.status(404);
+            throw new Error(`No rent record found with ID ${rentID}.`);
+        }
+
+        const rentRecord = existingRent[0];
+        const stdID = rentRecord.stdID;
+
+        // Step 2: Fetch the student's basic rent from the student table
+        const [studentResult] = await db.query(
+            `SELECT basicRent FROM tbl_students WHERE stdID = ?`,
+            [stdID]
+        );
+
+        if (studentResult.length === 0) {
+            res.status(404);
+            throw new Error(`Student with ID ${stdID} not found.`);
+        }
+
+        const BasicRent = parseFloat(studentResult[0].basicRent);
+
+        // Step 3: Recalculate dues
+        const previousDues = parseFloat(rentRecord.Dues) || 0;
+        const currentMonthRent = BasicRent + previousDues;
+        const newDues = currentMonthRent - parseFloat(PaidAmount);
+
+        // Step 4: Update the rent record
+        const [updateResult] = await db.query(
+            `UPDATE tbl_rent 
+            SET RentPaidMonth = ?, 
+                Year = ?, 
+                RentStatus = ?, 
+                RentType = ?, 
+                PaidAmount = ?, 
+                Dues = ? 
+            WHERE RentID = ?`,
+            [
+                RentPaidMonth,
+                Year,
+                newDues > 0 ? "Partially Paid" : "Paid", // Dynamically set RentStatus
+                RentType,
+                PaidAmount,
+                newDues > 0 ? newDues : 0, // Ensure dues are non-negative
+                rentID,
+            ]
+        );
+
+        if (updateResult.affectedRows === 0) {
+            res.status(500);
+            throw new Error("Failed to update the rent record.");
+        }
+
+        // Step 5: Return success response
+        res.status(200).json({
+            message: "Rent record updated successfully.",
+            rentDetails: {
+                RentID: rentID,
+                stdID,
+                RentPaidMonth,
+                Year,
+                RentStatus: newDues > 0 ? "Partially Paid" : "Paid",
+                RentType,
+                BasicRent,
+                PaidAmount,
+                Dues: newDues > 0 ? newDues : 0,
+            },
+        });
+    } catch (error) {
+        res.status(500);
+        throw new Error(`Error updating rent record: ${error.message}`);
+    }
 });
 
-//@decs Delete Expense
-//@route GET /api/expense
-//@access Public
+//@decs Delete Rental
+//@route GET /api/Rental
+//@access Private
 const deleteRental = asyncHandler(async (req, res) => {
+    const {rentID} = req.body;
+    if(!rentID){
+        res.status(404);
+        throw new Error("Rend ID not found");
+    }
+    try{
+        const [existingRent] = await db.query(`SELECT * FROM tbl_rent WHERE RentID = ?`, [rentID]);
+        if (existingRent.length === 0) {
+            res.status(404);
+            throw new Error(`No rent record found with ID ${rentID}.`);
+        }
+        
+        // step2: if record exits then delete it
+        const [deleteResult] = await db.query(`DELETE FROM tbl_rent WHERE RentID = ?`, [rentID]);
+        if (deleteResult.affectedRows === 0) {
+            res.status(500);
+            throw new Error("Failed to delete the rental record.");
+        }
 
+        // Step 3: Return success response
+        res.status(200).json({
+            message: `Rental record with ID ${rentID} deleted successfully.`,
+            statusCode: 200,
+        });
+        
+    } catch(error) {
+        res.status(500);
+        throw new Error(`Error deleting rental record: ${error.message}`);
+    }
 })
 
 module.exports = {getAllRentals, getRentalById, createRental, updateRental, deleteRental}

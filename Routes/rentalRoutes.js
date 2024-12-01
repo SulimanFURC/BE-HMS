@@ -15,10 +15,10 @@ router.route("/getRentalById").post(getRentalById)
 router.route("/createRental").post(createRental)
 
 // Update Expense by id
-router.route("/updateRental").put()
+router.route("/updateRental").put(updateRental)
 
 // Delete Expense by id
-router.route("/deleteRental").delete()
+router.route("/deleteRental").delete(deleteRental)
 
 
 module.exports = router;
