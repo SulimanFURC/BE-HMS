@@ -21,8 +21,13 @@ const getAllRentals = asyncHandler(async (req, res) => {
         const [totalRowsResult] = await db.query('SELECT COUNT(*) AS total FROM tbl_rent');
         const totalRecords = totalRowsResult[0].total;
 
-        // Fetch paginated records
-        const [rows] = await db.query('SELECT * FROM tbl_rent LIMIT ? OFFSET ?', [limit, offset]);
+        // Fetch paginated records with student name
+        const [rows] = await db.query(`
+            SELECT r.*, s.name 
+            FROM tbl_rent r
+            JOIN tbl_students s ON r.stdID = s.stdID
+            LIMIT ? OFFSET ?
+        `, [limit, offset]);
 
         // Calculate total pages
         const totalPages = Math.ceil(totalRecords / pageSize);
@@ -36,9 +41,9 @@ const getAllRentals = asyncHandler(async (req, res) => {
             pageSize,
         });
     } catch (err) {
-        res.status(500).json({statusCode: 500, message: err.message });
+        res.status(500).json({ statusCode: 500, message: err.message });
     }
-})
+});
 
 //@decs Get Single rental
 //@route POST /api/rental
