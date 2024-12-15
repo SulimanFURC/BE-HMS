@@ -79,7 +79,7 @@ const createExpense = asyncHandler(async (req, res)=> {
 
     try {
         // Validate required fields
-        if (!expDate || !expName || !expAmount || !expAttachment) {
+        if (!expDate || !expName || !expAmount) {
             res.status(400).json({ message: 'All fields are required' });
             return;
         }
