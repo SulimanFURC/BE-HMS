@@ -334,4 +334,60 @@ const deleteRental = asyncHandler(async (req, res) => {
     }
 })
 
-module.exports = {getAllRentals, getRentalById, createRental, updateRental, deleteRental}
+
+const studentRentDetails = asyncHandler(async (req, res) => {
+    const { stdID } = req.body;
+  
+    if (!stdID) {
+      return res.status(400).json({ status: "error", message: "Student ID is required" });
+    }
+  
+    try {
+      // Step 1: Fetch rent data for the student from the database
+      const [rentData] = await db.query(
+        `SELECT * FROM tbl_rent WHERE stdID = ? ORDER BY Year, RentPaidMonth`,
+        [stdID]
+      );
+  
+      if (!rentData || rentData.length === 0) {
+        return res.status(404).json({ status: "error", message: "No rent data found for the given student ID." });
+      }
+  
+      // Step 2: Calculate dues and format the response
+      let previousDues = 0;
+      const rentDetails = rentData.map((item) => {
+        const basicRent = item.BasicRent || 0;
+        const paidAmount = item.PaidAmount || 0;
+  
+        // Calculate current month's dues
+        const currentMonthDue = Math.floor(basicRent + previousDues - paidAmount);
+  
+        // Calculate total dues till this month
+        const totalDues = Math.floor(previousDues + currentMonthDue);
+  
+        // Update previous dues for the next iteration
+        previousDues = currentMonthDue > 0 ? currentMonthDue : 0;
+  
+        return {
+          Month: item.RentPaidMonth,
+          Year: item.Year,
+          BasicRent: basicRent,
+          PaymentMode: item.PaymentMode,
+          AmountPaid: paidAmount,
+          CurrentMonthDue: currentMonthDue > 0 ? currentMonthDue : 0,
+          TotalDues: totalDues > 0 ? totalDues : 0,
+        };
+      });
+  
+      // Step 3: Return the response
+      return res.status(200).json({ status: "success", data: rentDetails });
+  
+    } catch (error) {
+      res.status(500).json({
+        status: "error",
+        message: `Error fetching rent details: ${error.message}`,
+      });
+    }
+  });
+
+module.exports = {getAllRentals, getRentalById, createRental, updateRental, deleteRental, studentRentDetails}
