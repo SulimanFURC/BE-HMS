@@ -1,7 +1,7 @@
 const express = require("express")
 const router = express.Router();
 const { validateToken } = require("../middleware/validateTokenHandler");
-const {getAllRentals, getRentalById, createRental, updateRental, deleteRental} = require("../controllers/rentalController");
+const {getAllRentals, getRentalById, createRental, updateRental, deleteRental, studentRentDetails} = require("../controllers/rentalController");
 
 router.use(validateToken);
 
@@ -18,7 +18,10 @@ router.route("/createRental").post(createRental)
 router.route("/updateRental").put(updateRental)
 
 // Delete Expense by id
-router.route("/deleteRental").delete(deleteRental)
+router.route("/deleteRental").delete(deleteRental);
+
+// Get Rental Record for a specific User
+router.route("/getStudentRentDetails").post(studentRentDetails)
 
 
 module.exports = router;
