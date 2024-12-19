@@ -9,7 +9,7 @@ const { uploadOnCloudinary } = require("../config/cloudinary");
 
 //@decs Get all expenses
 //@route GET /api/expense
-//@access Public
+//@access Private
 const getExpenses = asyncHandler(async (req, res) => {
     try {
         // Default pagination values
@@ -45,7 +45,7 @@ const getExpenses = asyncHandler(async (req, res) => {
 
 //@decs Get Single expense
 //@route GET /api/expense
-//@access Public
+//@access Private
 const getExpense = asyncHandler(async (req, res) => {
     const { expenseId } = req.body;
 
@@ -73,7 +73,7 @@ const getExpense = asyncHandler(async (req, res) => {
 
 //@decs Create expense
 //@route GET /api/expense
-//@access Public
+//@access Private
 const createExpense = asyncHandler(async (req, res)=> {
     const { expDate, expName, expAmount, expPaymentMode, description, expAttachment } = req.body;
 
@@ -109,7 +109,7 @@ const createExpense = asyncHandler(async (req, res)=> {
 
 //@decs Update expense
 //@route GET /api/expense
-//@access Public
+//@access Private
 const updateExpense = asyncHandler(async (req, res) => {
     const {expenseID, expDate, expName, expAmount, expPaymentMode, description, expAttachment } = req.body;
     try {
@@ -159,7 +159,7 @@ const updateExpense = asyncHandler(async (req, res) => {
 
 //@decs Delete Expense
 //@route GET /api/expense
-//@access Public
+//@access Private
 const deleteExpense = asyncHandler(async (req, res) => {
     const { expID: expenseID } = req.body; // Extract the Expense ID from the request body
 
@@ -193,4 +193,56 @@ const deleteExpense = asyncHandler(async (req, res) => {
     }
 })
 
-module.exports = {getExpenses, getExpense, createExpense, updateExpense, deleteExpense}
+//@decs Expense By Date Range
+//@route GET /api/expense
+//@access Private
+const expensesByDateRange = asyncHandler(async (req, res) => {
+    const { startDate, endDate } = req.body;
+
+    try {
+        // Validate input
+        if (!startDate || !endDate) {
+            return res.status(400).json({ message: 'Start date and end date are required' });
+        }
+
+        // Fetch total income and expenses within the date range
+        const [expenseResult] = await db.query(
+            'SELECT SUM(expAmount) AS totalExpense FROM tbl_expense WHERE expDate BETWEEN ? AND ? AND expAmount > 0',
+            [startDate, endDate]
+        );
+
+        console.log("Start Year: ", new Date(startDate).getFullYear())
+        console.log("Start Month: ", new Date(startDate).getMonth() + 1)
+        console.log("End Year: ", new Date(endDate).getFullYear())
+        console.log("End Month: ", new Date(endDate).getMonth() + 1)
+        const [incomeResult] = await db.query(
+            'SELECT SUM(PaidAmount) AS totalIncome FROM tbl_rent WHERE (Year > ? OR (Year = ? AND RentPaidMonth >= ?)) AND (Year < ? OR (Year = ? AND RentPaidMonth <= ?))',
+            [
+            new Date(startDate).getFullYear(),
+            new Date(startDate).getFullYear(),
+            new Date(startDate).getMonth() + 1,
+            new Date(endDate).getFullYear(),
+            new Date(endDate).getFullYear(),
+            new Date(endDate).getMonth() + 1
+            ]
+        );
+        // const [incomeResult] = await db.query(
+        //     'SELECT SUM(expAmount) AS totalIncome FROM tbl_expense WHERE expDate BETWEEN ? AND ? AND expAmount < 0',
+        //     [startDate, endDate]
+        // );
+
+        const totalIncome = incomeResult[0].totalIncome || 0;
+        const totalExpense = expenseResult[0].totalExpense || 0;
+
+        res.status(200).json({
+            totalIncome,
+            totalExpense,
+            statusCode: 200
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: err.message });
+    }
+})
+
+module.exports = {getExpenses, getExpense, createExpense, updateExpense, deleteExpense, expensesByDateRange}

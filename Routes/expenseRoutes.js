@@ -1,6 +1,6 @@
 const express = require("express")
 const router = express.Router();
-const {getExpenses, getExpense, createExpense, updateExpense, deleteExpense} = require("../controllers/expenseController");
+const {getExpenses, getExpense, createExpense, updateExpense, deleteExpense, expensesByDateRange} = require("../controllers/expenseController");
 const { validateToken } = require("../middleware/validateTokenHandler");
 const uploadImage = require("../config/multer");
 
@@ -20,6 +20,9 @@ router.route("/updateExpense").put(updateExpense)
 
 // Delete Expense by id
 router.route("/deleteExpense").delete(deleteExpense)
+
+// Delete Expense by id
+router.route("/expenseByDateRange").post(expensesByDateRange)
 
 
 module.exports = router;
