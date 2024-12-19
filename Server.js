@@ -19,6 +19,9 @@ app.use(express.json());
 
 // request middleware for all request 
 app.use(requestLogger); 
+app.get("/", (req, res) => {
+    res.send("Welcome to Hostel Management System");
+});
 app.use("/api/students", require("./Routes/studentRoutes"));
 app.use("/api/expenses", require("./Routes/expenseRoutes"));
 app.use("/api/room", require("./Routes/roomRoutes"));
