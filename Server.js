@@ -1,8 +1,6 @@
 const express = require("express");
 const errorHandler = require("./middleware/errorHandler");
 const connection = require("./config/dbConnection");
-const dotenv = require("dotenv").config();
-const path = require("path")
 const app = express();
 const cors = require("cors");
 const bodyParser = require('body-parser');
@@ -21,17 +19,15 @@ app.use(express.json());
 
 // request middleware for all request 
 app.use(requestLogger); 
-
-app.use("/home", (req, res) => {
-    res.json({
-        message: "Hello World"
-    })
-})
+app.get("/", (req, res) => {
+    res.send("Welcome to Hostel Management System");
+});
 app.use("/api/students", require("./Routes/studentRoutes"));
 app.use("/api/expenses", require("./Routes/expenseRoutes"));
 app.use("/api/room", require("./Routes/roomRoutes"));
 app.use("/api/dashboard", require("./Routes/dashboardRoutes"));
 app.use("/api/users", require("./Routes/userRoutes"));
+app.use("/api/rental", require("./Routes/rentalRoutes"));
 app.use(errorHandler);
 
 const server = app.listen(PORT, () => {
