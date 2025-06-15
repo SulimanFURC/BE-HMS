@@ -6,7 +6,7 @@ const cors = require("cors");
 const bodyParser = require('body-parser');
 const requestLogger = require("./middleware/logger");
 
-PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5000;
 
 
 app.use(bodyParser.json({ limit: '50mb' }));
@@ -18,10 +18,21 @@ app.use(cors({ origin: '*' }));
 app.use(express.json());
 
 // request middleware for all request 
-app.use(requestLogger); 
+app.use(requestLogger);
+
+// ✅ Health check route (add it here)
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    message: "Hostel Management Backend is running",
+    port: PORT
+  });
+});
+
 app.get("/", (req, res) => {
     res.send("Welcome to Hostel Management System");
 });
+
 app.use("/api/students", require("./Routes/studentRoutes"));
 app.use("/api/expenses", require("./Routes/expenseRoutes"));
 app.use("/api/room", require("./Routes/roomRoutes"));
