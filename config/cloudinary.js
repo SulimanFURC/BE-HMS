@@ -1,6 +1,5 @@
 const cloudinary = require('cloudinary').v2;
-const fs = require('fs');
-const path = require('path');
+const stream = require('stream');
 
 cloudinary.config({ 
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME, 
@@ -16,24 +15,30 @@ const uploadOnCloudinary = async (base64String, folder, filename) => {
         throw new Error('Invalid Base64 string');
     }
 
-    // Decode Base64 to buffer
+    // Directly upload buffer to Cloudinary without saving to disk
     const buffer = Buffer.from(matches[2], 'base64');
-    const tempFilePath = path.join(__dirname, '..', 'uploads', filename);
-    // Save the file temporarily
-    fs.writeFileSync(tempFilePath, buffer);
-
     try {
-        // Upload the temporary file to Cloudinary
-        const result = await cloudinary.uploader.upload(tempFilePath, {
-            folder: folder,
-            resource_type: 'auto'
+        const result = await cloudinary.uploader.upload_stream(
+            {
+                folder: folder,
+                resource_type: 'auto',
+                public_id: filename ? filename.split('.')[0] : undefined
+            },
+            (error, result) => {
+                if (error) throw new Error('Cloudinary upload failed: ' + error.message);
+                return result;
+            }
+        );
+        // Convert buffer to stream and pipe to Cloudinary
+        const bufferStream = new stream.PassThrough();
+        bufferStream.end(buffer);
+        bufferStream.pipe(result);
+        // Wait for upload to finish
+        return new Promise((resolve, reject) => {
+            result.on('finish', () => resolve(result.secure_url));
+            result.on('error', reject);
         });
-
-        // Remove the temporary file
-        fs.unlinkSync(tempFilePath);
-        return result.secure_url; // Return the Cloudinary URL
     } catch (error) {
-        fs.unlinkSync(tempFilePath); // Clean up even on failure
         throw new Error('Cloudinary upload failed: ' + error.message);
     }
 };
