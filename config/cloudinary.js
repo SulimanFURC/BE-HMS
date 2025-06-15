@@ -15,33 +15,23 @@ const uploadOnCloudinary = async (base64String, folder, filename) => {
         throw new Error('Invalid Base64 string');
     }
 
-    // Directly upload buffer to Cloudinary without saving to disk
     const buffer = Buffer.from(matches[2], 'base64');
-    try {
-        const result = await cloudinary.uploader.upload_stream(
+    return new Promise((resolve, reject) => {
+        const bufferStream = new stream.PassThrough();
+        bufferStream.end(buffer);
+        const uploadStream = cloudinary.uploader.upload_stream(
             {
                 folder: folder,
                 resource_type: 'auto',
                 public_id: filename ? filename.split('.')[0] : undefined
             },
             (error, result) => {
-                if (error) throw new Error('Cloudinary upload failed: ' + error.message);
-                return result;
+                if (error) return reject(new Error('Cloudinary upload failed: ' + error.message));
+                resolve(result.secure_url);
             }
         );
-        // Convert buffer to stream and pipe to Cloudinary
-        const bufferStream = new stream.PassThrough();
-        bufferStream.end(buffer);
-        bufferStream.pipe(result);
-        // Wait for upload to finish
-        return new Promise((resolve, reject) => {
-            result.on('finish', () => resolve(result.secure_url));
-            result.on('error', reject);
-        });
-    } catch (error) {
-        throw new Error('Cloudinary upload failed: ' + error.message);
-    }
+        bufferStream.pipe(uploadStream);
+    });
 };
-
 
 module.exports = { uploadOnCloudinary };
