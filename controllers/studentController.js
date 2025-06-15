@@ -86,25 +86,37 @@ const createStudent = asyncHandler(async (req, res) => {
         email, 
         cnic_front, 
         cnic_back, 
-        picture 
+        picture,
+        roomNumber,
+        description,
+        securityFee
     } = req.body;
 
     try {
         // Validate required fields
-        if (!name || !cnic || !admissionDate || !basicRent || !contactNo || !secondaryContactNo) {
-            res.status(400).json({ message: 'All fields are required' });
-            return;
+        if (!name || !cnic || !admissionDate || !basicRent || !contactNo || !secondaryContactNo || !roomNumber) {
+            return res.status(400).json({ message: 'All fields are required, including roomNumber' });
+        }
+
+        // Check if the room exists
+        const [roomCheck] = await db.query(
+            `SELECT * FROM tbl_room WHERE roomID = ?`,
+            [roomNumber]
+        );
+
+        if (roomCheck.length === 0) {
+            return res.status(400).json({ message: `Room number ${roomNumber} does not exist` });
         }
 
         // Insert student data into the database
         const [result] = await db.query(
             `INSERT INTO tbl_students 
-            (name, cnic, admissionDate, basicRent, contactNo, bloodGroup, address, secondaryContactNo, email) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [name, cnic, admissionDate, basicRent, contactNo, bloodGroup, address, secondaryContactNo, email]
+            (name, cnic, admissionDate, basicRent, contactNo, bloodGroup, address, secondaryContactNo, email, roomNumber, description, securityFee) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [name, cnic, admissionDate, basicRent, contactNo, bloodGroup, address, secondaryContactNo, email, roomNumber, description, securityFee]
         );
 
-        const studentId = result.insertId; // Get the student ID
+        const studentId = result.insertId; // Get the newly created student ID
 
         // Upload images to Cloudinary
         const pictureUrl = picture
@@ -126,13 +138,19 @@ const createStudent = asyncHandler(async (req, res) => {
         );
 
         // Return success response
-        res.status(201).json({ message: 'Student created', studentId, status: 201 });
+        res.status(201).json({ message: 'Student created successfully', studentId, status: 201 });
 
+        // Log activity (non-blocking)
+        if (req.user && req.user.username) {
+            const actionMsg = `Added new student '${name}' - '${studentId}'`;
+            req.logActivity(req.user.username, actionMsg);
+        }
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: err.message });
     }
 });
+
 
 //@decs Update student
 //@route GET /api/students
@@ -151,7 +169,10 @@ const updateStudent = asyncHandler(async (req, res) => {
         email,
         cnic_front,
         cnic_back,
-        picture
+        picture,
+        roomNumber,
+        securityFee,
+        description 
     } = req.body;
 
     try {
@@ -167,6 +188,17 @@ const updateStudent = asyncHandler(async (req, res) => {
         }
 
         const existingRecord = rows[0]; // Existing student record
+
+        // Validate roomNumber if provided
+        if (roomNumber) {
+            const [roomCheck] = await db.query(
+                `SELECT * FROM tbl_room WHERE roomNumber = ?`,
+                [roomNumber]
+            );
+            if (roomCheck.length === 0) {
+                return res.status(400).json({ message: `Room number ${roomNumber} does not exist` });
+            }
+        }
 
         // Upload new images if provided, or retain existing ones
         const updatedPictureUrl = picture
@@ -196,7 +228,10 @@ const updateStudent = asyncHandler(async (req, res) => {
                 email = ?, 
                 picture = ?, 
                 cnic_front = ?, 
-                cnic_back = ? 
+                cnic_back = ?,
+                roomNumber = ?, 
+                securityFee = ?, 
+                description = ? 
             WHERE stdID = ?`,
             [
                 name || existingRecord.name,
@@ -211,6 +246,9 @@ const updateStudent = asyncHandler(async (req, res) => {
                 updatedPictureUrl,
                 updatedCnicFrontUrl,
                 updatedCnicBackUrl,
+                roomNumber || existingRecord.roomNumber,
+                securityFee || existingRecord.securityFee,
+                description || existingRecord.description,
                 studentId
             ]
         );
