@@ -1,18 +1,28 @@
-
 const requestLogger = (req, res, next) => {
-        console.log('------------------------------');
+        console.log('------------ Request Body ------------------');
         console.log("Time: ", new Date().toISOString());
         console.log('Method:', req.method);
         console.log('Path:  ', req.path);
         console.log('Body:  ', req.body);
-        console.log('------------------------------');
+        console.log('------------ Request Body END ------------------');
+    
         // Intercept the response body
-        // const originalSend = res.send;
-        // res.send = function (body) {
-        //     console.log('Response Body:', body); // Log the response body
-        //     originalSend.call(this, body); // Call the original res.send with the body
-        // };
-        // console.log('---');
+        const originalJson = res.json;
+        const originalSend = res.send;
+    
+        res.json = function (body) {
+            console.log('------------ Response Body ------------------');
+            console.log('Body:  ', body);
+            console.log('------------ Response Body END ------------------');
+            return originalJson.call(this, body);
+        };
+        res.send = function (body) {
+            console.log('------------ Response Body ------------------');
+            console.log('Body:  ', body);
+            console.log('------------ Response Body END ------------------');
+            return originalSend.call(this, body);
+        };
+    
         next();
     };
     
