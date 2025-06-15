@@ -5,6 +5,7 @@ const app = express();
 const cors = require("cors");
 const bodyParser = require('body-parser');
 const requestLogger = require("./middleware/logger");
+const activityLogger = require("./middleware/logger");
 
 // ✅ Respect Railway's dynamic port assignment
 const PORT = process.env.PORT || 5000;
@@ -17,6 +18,7 @@ app.use(cors({ origin: '*' }));
 
 // ✅ Logging middleware
 app.use(requestLogger);
+app.use(activityLogger); // Attach activity logger middleware before routes
 
 // ✅ Health check (for Railway debugging)
 app.get("/health", (req, res) => {

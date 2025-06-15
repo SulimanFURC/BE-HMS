@@ -140,6 +140,11 @@ const createStudent = asyncHandler(async (req, res) => {
         // Return success response
         res.status(201).json({ message: 'Student created successfully', studentId, status: 201 });
 
+        // Log activity (non-blocking)
+        if (req.user && req.user.username) {
+            const actionMsg = `Added new student '${name}' - '${studentId}'`;
+            req.logActivity(req.user.username, actionMsg);
+        }
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: err.message });
