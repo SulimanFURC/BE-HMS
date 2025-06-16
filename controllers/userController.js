@@ -3,9 +3,9 @@ const db = require("../config/dbConnection");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
-//@decs Register User
-//@route POST /api/user/register
-//@access Public
+//@desc    Register a new user
+//@route   POST /api/user/register
+//@access  Public
 const registerUser = asyncHandler(async (req, res) => {
     const { username, email, password } = req.body;
     if (!username || !email || !password) {
@@ -31,9 +31,9 @@ const registerUser = asyncHandler(async (req, res) => {
     }
 })
 
-//@decs login user
-//@route POST /api/user/login
-//@access Public
+//@desc    Login user
+//@route   POST /api/user/login
+//@access  Public
 const loginUser = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
 
@@ -90,9 +90,9 @@ const loginUser = asyncHandler(async (req, res) => {
 })
 
 
-//@decs Current User Info
-//@route POST /api/user/current
-//@access Public
+//@desc    Get current user info
+//@route   POST /api/user/current
+//@access  Private
 const currentUser = asyncHandler(async (req, res) => {
     try {
         res.status(200).json(req.user);
@@ -101,9 +101,9 @@ const currentUser = asyncHandler(async (req, res) => {
     }
 })
 
-//@decs Refresh Token
-//@route POST /api/user/refreshToken
-//@access Private
+//@desc    Refresh JWT token
+//@route   POST /api/user/refreshToken
+//@access  Private
 const refreshToken = asyncHandler(async (req, res, next) => {
     const { token } = req.body;
 

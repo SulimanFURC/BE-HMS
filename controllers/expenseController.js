@@ -7,9 +7,9 @@ const { uploadOnCloudinary } = require("../config/cloudinary");
 // Middleware to handle image uploads
 // const uploadImage = upload.single('expAttachment');
 
-//@decs Get all expenses
-//@route GET /api/expense
-//@access Private
+//@desc    Get all expenses
+//@route   GET /api/expense
+//@access  Private
 const getExpenses = asyncHandler(async (req, res) => {
     try {
         // Default pagination values
@@ -43,9 +43,9 @@ const getExpenses = asyncHandler(async (req, res) => {
     }
 })
 
-//@decs Get Single expense
-//@route GET /api/expense
-//@access Private
+//@desc    Get single expense by ID
+//@route   POST /api/expense
+//@access  Private
 const getExpense = asyncHandler(async (req, res) => {
     const { expenseId } = req.body;
 
@@ -71,9 +71,9 @@ const getExpense = asyncHandler(async (req, res) => {
     }
 })
 
-//@decs Create expense
-//@route GET /api/expense
-//@access Private
+//@desc    Create a new expense
+//@route   POST /api/expense
+//@access  Private
 const createExpense = asyncHandler(async (req, res)=> {
     const { expDate, expName, expAmount, expPaymentMode, description, expAttachment } = req.body;
 
@@ -107,9 +107,9 @@ const createExpense = asyncHandler(async (req, res)=> {
     }
 })
 
-//@decs Update expense
-//@route GET /api/expense
-//@access Private
+//@desc    Update an expense
+//@route   PUT /api/expense
+//@access  Private
 const updateExpense = asyncHandler(async (req, res) => {
     const {expenseID, expDate, expName, expAmount, expPaymentMode, description, expAttachment } = req.body;
     try {
@@ -157,9 +157,9 @@ const updateExpense = asyncHandler(async (req, res) => {
     }
 });
 
-//@decs Delete Expense
-//@route GET /api/expense
-//@access Private
+//@desc    Delete an expense
+//@route   DELETE /api/expense
+//@access  Private
 const deleteExpense = asyncHandler(async (req, res) => {
     const { expID: expenseID } = req.body; // Extract the Expense ID from the request body
 
@@ -193,9 +193,9 @@ const deleteExpense = asyncHandler(async (req, res) => {
     }
 })
 
-//@decs Expense By Date Range
-//@route GET /api/expense
-//@access Private
+//@desc    Get expenses by date range
+//@route   POST /api/expense/dateRange
+//@access  Private
 const expensesByDateRange = asyncHandler(async (req, res) => {
     const { startDate, endDate } = req.body;
 

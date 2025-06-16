@@ -4,9 +4,9 @@ const path = require('path');
 const fs = require("fs")
 
 
-//@decs Get all Rentals
-//@route GET /api/rental
-//@access Private
+//@desc    Get all rentals
+//@route   GET /api/rental
+//@access  Private
 const getAllRentals = asyncHandler(async (req, res) => {
     try {
         // Default pagination values
@@ -45,9 +45,9 @@ const getAllRentals = asyncHandler(async (req, res) => {
     }
 });
 
-//@decs Get Single rental
-//@route POST /api/rental
-//@access Private
+//@desc    Get single rental by ID
+//@route   POST /api/rental
+//@access  Private
 const getRentalById= asyncHandler(async (req, res) => {
     const { rentID } = req.body;
 
@@ -122,9 +122,9 @@ const getRentalById= asyncHandler(async (req, res) => {
     }
 })
 
-//@decs Create Rent
-//@route POST /api/rent
-//@access Private
+//@desc    Create a new rent record (cumulative payments supported)
+//@route   POST /api/rent
+//@access  Private
 const createRental = asyncHandler(async (req, res)=> {
     const { stdID, RentPaidMonth, Year, RentStatus, RentType, PaidAmount } = req.body;
 
@@ -145,27 +145,31 @@ const createRental = asyncHandler(async (req, res)=> {
             throw new Error(`Student with ID ${stdID} not found.`);
         }
 
-        const BasicRent = studentResult[0].basicRent;
+        const BasicRent = parseFloat(studentResult[0].basicRent);
 
-        // Step 2: Fetch the most recent rent record for the student
-        const [lastRentResult] = await db.query(
-            `SELECT * FROM tbl_rent WHERE stdID = ? ORDER BY Year DESC, RentPaidMonth DESC LIMIT 1`,
-            [stdID]
+        // Step 2: Fetch all previous rent records for the same student, month, and year
+        const [previousRents] = await db.query(
+            `SELECT PaidAmount FROM tbl_rent WHERE stdID = ? AND RentPaidMonth = ? AND Year = ?`,
+            [stdID, RentPaidMonth, Year]
         );
 
-        // Initialize previous dues
-        let previousDues = 0;
-        if (lastRentResult.length > 0) {
-            previousDues = parseFloat(lastRentResult[0].Dues) || 0;
+        // Step 3: Calculate total paid so far (before this payment)
+        let totalPaid = 0;
+        for (const rent of previousRents) {
+            totalPaid += parseFloat(rent.PaidAmount || 0);
         }
 
-        // Step 3: Calculate the total rent due for the current month
-        const currentMonthRent = parseFloat(BasicRent) + parseFloat(previousDues);
+        // Step 4: Add current payment, but do not allow overpayment
+        let newTotalPaid = totalPaid + parseFloat(PaidAmount);
+        if (newTotalPaid > BasicRent) {
+            return res.status(400).json({ message: `Total paid amount (${newTotalPaid}) exceeds basic rent (${BasicRent}).`, statusCode: 400 });
+        }
 
-        // Step 4: Calculate dues after the payment
-        const newDues = currentMonthRent - parseFloat(PaidAmount);
+        // Step 5: Calculate dues and status
+        const newDues = BasicRent - newTotalPaid;
+        const status = newDues === 0 ? "Paid" : "Partially Paid";
 
-        // Step 5: Insert the rent record
+        // Step 6: Insert the rent record
         const [insertResult] = await db.query(
             `INSERT INTO tbl_rent 
             (stdID, RentPaidMonth, Year, RentStatus, RentType, BasicRent, PaidAmount, Dues) 
@@ -174,11 +178,11 @@ const createRental = asyncHandler(async (req, res)=> {
                 stdID,
                 RentPaidMonth,
                 Year,
-                newDues > 0 ? "Partially Paid" : "Paid", // Determine RentStatus dynamically
+                status,
                 RentType,
                 BasicRent,
                 PaidAmount,
-                newDues > 0 ? newDues : 0 // Ensure dues are non-negative
+                newDues
             ]
         );
 
@@ -187,18 +191,18 @@ const createRental = asyncHandler(async (req, res)=> {
             throw new Error("Failed to insert the rent record.");
         }
 
-        // Step 6: Return success response
+        // Step 7: Return success response
         res.status(201).json({
             message: "Rent record created successfully.",
             rentDetails: {
                 stdID,
                 RentPaidMonth,
                 Year,
-                RentStatus: newDues > 0 ? "Partially Paid" : "Paid",
+                RentStatus: status,
                 RentType,
                 BasicRent,
                 PaidAmount,
-                Dues: newDues > 0 ? newDues : 0,
+                Dues: newDues,
             },
         });
     } catch (error) {
@@ -207,9 +211,9 @@ const createRental = asyncHandler(async (req, res)=> {
     }
 })
 
-//@decs Update rental
-//@route GET /api/rental
-//@access Private
+//@desc    Update a rent record (cumulative payments supported)
+//@route   PUT /api/rental/updateRental
+//@access  Private
 const updateRental = asyncHandler(async (req, res) => {
     const { rentID, RentPaidMonth, Year, RentStatus, RentType, PaidAmount } = req.body;
     if (!rentID) {
@@ -247,12 +251,29 @@ const updateRental = asyncHandler(async (req, res) => {
 
         const BasicRent = parseFloat(studentResult[0].basicRent);
 
-        // Step 3: Recalculate dues
-        const previousDues = parseFloat(rentRecord.Dues) || 0;
-        const currentMonthRent = BasicRent + previousDues;
-        const newDues = currentMonthRent - parseFloat(PaidAmount);
+        // Step 3: Fetch all rent records for the same student, month, and year (excluding this one)
+        const [otherRents] = await db.query(
+            `SELECT PaidAmount FROM tbl_rent WHERE stdID = ? AND RentPaidMonth = ? AND Year = ? AND RentID != ?`,
+            [stdID, RentPaidMonth, Year, rentID]
+        );
 
-        // Step 4: Update the rent record
+        // Step 4: Calculate total paid so far (excluding this record)
+        let totalPaid = 0;
+        for (const rent of otherRents) {
+            totalPaid += parseFloat(rent.PaidAmount || 0);
+        }
+
+        // Step 5: Add the updated payment, but do not allow overpayment
+        let newTotalPaid = totalPaid + parseFloat(PaidAmount);
+        if (newTotalPaid > BasicRent) {
+            return res.status(400).json({ message: `Total paid amount (${newTotalPaid}) exceeds basic rent (${BasicRent}).`, statusCode: 400 });
+        }
+
+        // Step 6: Calculate dues and status
+        const newDues = BasicRent - newTotalPaid;
+        const status = newDues === 0 ? "Paid" : "Partially Paid";
+
+        // Step 7: Update the rent record
         const [updateResult] = await db.query(
             `UPDATE tbl_rent 
             SET RentPaidMonth = ?, 
@@ -265,10 +286,10 @@ const updateRental = asyncHandler(async (req, res) => {
             [
                 RentPaidMonth,
                 Year,
-                newDues > 0 ? "Partially Paid" : "Paid", // Dynamically set RentStatus
+                status,
                 RentType,
                 PaidAmount,
-                newDues > 0 ? newDues : 0, // Ensure dues are non-negative
+                newDues,
                 rentID,
             ]
         );
@@ -278,7 +299,7 @@ const updateRental = asyncHandler(async (req, res) => {
             throw new Error("Failed to update the rent record.");
         }
 
-        // Step 5: Return success response
+        // Step 8: Return success response
         res.status(200).json({
             message: "Rent record updated successfully.",
             rentDetails: {
@@ -286,11 +307,11 @@ const updateRental = asyncHandler(async (req, res) => {
                 stdID,
                 RentPaidMonth,
                 Year,
-                RentStatus: newDues > 0 ? "Partially Paid" : "Paid",
+                RentStatus: status,
                 RentType,
                 BasicRent,
                 PaidAmount,
-                Dues: newDues > 0 ? newDues : 0,
+                Dues: newDues,
             },
         });
     } catch (error) {
@@ -299,9 +320,9 @@ const updateRental = asyncHandler(async (req, res) => {
     }
 });
 
-//@decs Delete Rental
-//@route GET /api/Rental
-//@access Private
+//@desc    Delete a rent record
+//@route   DELETE /api/rental
+//@access  Private
 const deleteRental = asyncHandler(async (req, res) => {
     const {rentID} = req.body;
     if(!rentID){
@@ -335,6 +356,9 @@ const deleteRental = asyncHandler(async (req, res) => {
 })
 
 
+//@desc    Get student rent details
+//@route   POST /api/rental/studentRentDetails
+//@access  Private
 const studentRentDetails = asyncHandler(async (req, res) => {
     const { stdID } = req.body;
   

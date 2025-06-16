@@ -4,9 +4,9 @@ const fs = require("fs");
 const { uploadOnCloudinary } = require("../config/cloudinary");
 
 
-//@decs Get all students
-//@route GET /api/students
-//@access Public
+//@desc    Get all students
+//@route   GET /api/students
+//@access  Private
 const getStudents = asyncHandler(async (req, res) => {
     try {
         // Default pagination values
@@ -41,9 +41,9 @@ const getStudents = asyncHandler(async (req, res) => {
 });
 
 
-//@decs Get Single Student
-//@route GET /api/students
-//@access Public
+//@desc    Get single student by ID
+//@route   POST /api/students
+//@access  Private
 const getStudent = asyncHandler(async (req, res) => {
     const { studentId } = req.body; // Retrieve `studentId` from the request body
 
@@ -68,9 +68,9 @@ const getStudent = asyncHandler(async (req, res) => {
         res.status(500).json({ message: err.message });
     }
 });
-//@decs Create New student
-//@route GET /api/students
-//@access Public
+//@desc    Create a new student
+//@route   POST /api/students
+//@access  Private
 
 // Max file size (1MB)
 const createStudent = asyncHandler(async (req, res) => {
@@ -152,9 +152,9 @@ const createStudent = asyncHandler(async (req, res) => {
 });
 
 
-//@decs Update student
-//@route GET /api/students
-//@access Public
+//@desc    Update a student
+//@route   PUT /api/students
+//@access  Private
 const updateStudent = asyncHandler(async (req, res) => {
     const {
         studentId, // Student ID from the request body

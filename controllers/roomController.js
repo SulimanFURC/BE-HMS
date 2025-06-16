@@ -1,9 +1,9 @@
 const asyncHandler = require("express-async-handler");
 const db = require("../config/dbConnection");
 
-//@decs Get all room
-//@route GET /api/room
-//@access Public
+//@desc    Get all rooms
+//@route   GET /api/room
+//@access  Public
 const getRooms = asyncHandler(async (req, res) => {
     try {
         const [rows] = await db.query("SELECT * FROM tbl_room");
@@ -13,9 +13,9 @@ const getRooms = asyncHandler(async (req, res) => {
     }
 })
 
-//@decs Create room
-//@route GET /api/room
-//@access Public
+//@desc    Create a new room
+//@route   POST /api/room
+//@access  Private
 const createRoom = asyncHandler(async (req, res)=> {
     const { totalCapacity, occupied, attachBath, description} = req.body;
     try {
@@ -26,9 +26,9 @@ const createRoom = asyncHandler(async (req, res)=> {
     }
 })
 
-//@decs Update Room
-//@route GET /api/room
-//@access Public
+//@desc    Update a room
+//@route   PUT /api/room/:id
+//@access  Private
 const updateRoom = asyncHandler(async (req, res) => {
     const roomId = req.params.id
     const { totalCapacity, occupied, attachBath, description} = req.body
@@ -45,9 +45,9 @@ const updateRoom = asyncHandler(async (req, res) => {
     }
 })
 
-//@decs Delete Room
-//@route GET /api/room
-//@access Public
+//@desc    Delete a room
+//@route   DELETE /api/room/:id
+//@access  Private
 const deleteRoom = asyncHandler(async (req, res) => {
     const roomId = req.params.id;
     try {

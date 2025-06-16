@@ -63,7 +63,9 @@ const calculatePercentageChange = (current, previous) => {
     return ((current - previous) / previous) * 100;
 };
 
-// Get dashboard data
+//@desc    Get dashboard summary data
+//@route   GET /api/dashboard
+//@access  Private
 const getDashboardData = asyncHandler(async (req, res) => {
     try {
         // Total income and expenses
@@ -121,7 +123,9 @@ const getPreviousSixMonths = () => {
     return months.reverse(); // To display in ascending order
 };
 
-// API to get income, expense, and savings data for the previous 6 months
+//@desc    Get dashboard chart data for previous 6 months
+//@route   GET /api/dashboard/chart
+//@access  Private
 const getMonthlyChartData = asyncHandler(async (req, res) => {
     try {
         const months = getPreviousSixMonths();
