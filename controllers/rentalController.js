@@ -17,17 +17,36 @@ const getAllRentals = asyncHandler(async (req, res) => {
         const offset = (page - 1) * pageSize;
         const limit = pageSize;
 
-        // Get total number of records
-        const [totalRowsResult] = await db.query('SELECT COUNT(*) AS total FROM tbl_rent');
+        // Search and filter params
+        const search = req.query.search ? req.query.search.trim() : '';
+        const rentStatus = req.query.rentStatus ? req.query.rentStatus.trim() : '';
+
+        // Build WHERE clause and params
+        let whereClause = '';
+        let params = [];
+        if (search && rentStatus) {
+            whereClause = 'WHERE LOWER(s.name) LIKE ? AND r.rentStatus = ?';
+            params.push(`%${search.toLowerCase()}%`, rentStatus);
+        } else if (search) {
+            whereClause = 'WHERE LOWER(s.name) LIKE ?';
+            params.push(`%${search.toLowerCase()}%`);
+        } else if (rentStatus) {
+            whereClause = 'WHERE r.rentStatus = ?';
+            params.push(rentStatus);
+        }
+
+        // Get total number of records (with filters)
+        const [totalRowsResult] = await db.query(
+            `SELECT COUNT(*) AS total FROM tbl_rent r JOIN tbl_students s ON r.stdID = s.stdID ${whereClause}`,
+            params
+        );
         const totalRecords = totalRowsResult[0].total;
 
-        // Fetch paginated records with student name
-        const [rows] = await db.query(`
-            SELECT r.*, s.name 
-            FROM tbl_rent r
-            JOIN tbl_students s ON r.stdID = s.stdID
-            LIMIT ? OFFSET ?
-        `, [limit, offset]);
+        // Fetch paginated records with student name (with filters)
+        const [rows] = await db.query(
+            `SELECT r.*, s.name FROM tbl_rent r JOIN tbl_students s ON r.stdID = s.stdID ${whereClause} LIMIT ? OFFSET ?`,
+            [...params, limit, offset]
+        );
 
         // Calculate total pages
         const totalPages = Math.ceil(totalRecords / pageSize);
