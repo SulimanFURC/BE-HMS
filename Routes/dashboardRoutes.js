@@ -4,7 +4,6 @@ const {getDashboardData, getMonthlyChartData} = require("../controllers/dashboar
 const { validateToken } = require("../middleware/validateTokenHandler");
 
 router.use(validateToken);
-// Get all Dashboard Data
 router.route("/getDashboardData").get(getDashboardData)
 router.route("/getDashboardChart").get(getMonthlyChartData)
 
