@@ -433,4 +433,111 @@ const studentRentDetails = asyncHandler(async (req, res) => {
     }
   });
 
-module.exports = {getAllRentals, getRentalById, createRental, updateRental, deleteRental, studentRentDetails}
+//@desc    Generate invoice for a student
+//@route   POST /api/rental/invoice
+//@access  Private
+const generateInvoice = asyncHandler(async (req, res) => {
+    const { stdID } = req.body;
+    if (!stdID) {
+        return res.status(400).json({ message: 'Student ID (stdID) is required.' });
+    }
+    try {
+        // Fetch student details
+        const [studentRows] = await db.query('SELECT name, stdID, roomNumber FROM tbl_students WHERE stdID = ?', [stdID]);
+        if (!studentRows || studentRows.length === 0) {
+            return res.status(404).json({ message: 'Student not found.' });
+        }
+        const student = studentRows[0];
+
+        // Get current date info
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1; // JS months are 0-indexed
+        const monthName = now.toLocaleString('default', { month: 'long' });
+        const dateStr = now.toISOString().split('T')[0];
+        const dueDate = new Date(now.getFullYear(), now.getMonth(), 10).toISOString().split('T')[0];
+
+        // Fetch current month's rent record
+        const [currentRentRows] = await db.query(
+            'SELECT * FROM tbl_rent WHERE stdID = ? AND Year = ? AND RentPaidMonth = ?',
+            [stdID, year, month]
+        );
+        if (!currentRentRows || currentRentRows.length === 0) {
+            return res.status(404).json({ message: 'No rent record found for the current month.' });
+        }
+        const currentRent = currentRentRows[0];
+
+        // Fetch previous month's dues
+        let prevMonth = month - 1;
+        let prevYear = year;
+        if (prevMonth === 0) {
+            prevMonth = 12;
+            prevYear = year - 1;
+        }
+        const [prevRentRows] = await db.query(
+            'SELECT Dues FROM tbl_rent WHERE stdID = ? AND Year = ? AND RentPaidMonth = ?',
+            [stdID, prevYear, prevMonth]
+        );
+        const previousMonthDues = prevRentRows.length > 0 ? parseFloat(prevRentRows[0].Dues || 0) : 0;
+
+        // Calculate totals
+        const basicRent = parseFloat(currentRent.BasicRent || 0);
+        const amountPaid = parseFloat(currentRent.PaidAmount || 0);
+        const totalDues = basicRent + previousMonthDues;
+        const totalAmountPayable = totalDues;
+        const balanceDue = totalAmountPayable - amountPaid;
+
+        // Fetch previous 6 months’ payment history
+        const [historyRows] = await db.query(
+            `SELECT Year, RentPaidMonth, PaidAmount, RentStatus FROM tbl_rent WHERE stdID = ? AND (Year < ? OR (Year = ? AND RentPaidMonth < ?)) ORDER BY Year DESC, RentPaidMonth DESC LIMIT 6`,
+            [stdID, year, year, month]
+        );
+        const paymentHistory = historyRows.map(row => ({
+            year: row.Year,
+            month: new Date(row.Year, row.RentPaidMonth - 1).toLocaleString('default', { month: 'long' }),
+            amountPaid: parseFloat(row.PaidAmount || 0),
+            status: row.RentStatus || 'Unknown'
+        }));
+
+        // Generate invoice number
+        const stdIdStr = String(student.stdID);
+        const last4 = stdIdStr.slice(-4);
+        const invoiceNumber = `INV-${year}-${String(month).padStart(2, '0')}-${last4}`;
+
+        // Compose response
+        res.status(200).json({
+            invoiceNumber,
+            date: dateStr,
+            dueDate: dueDate,
+            student: {
+                name: student.name,
+                id: student.stdID,
+                roomNo: student.roomNumber
+            },
+            month: monthName,
+            year: year,
+            basicRent: basicRent,
+            previousMonthDues: previousMonthDues,
+            totalDues: totalDues,
+            totalAmountPayable: totalAmountPayable,
+            amountPaid: amountPaid,
+            balanceDue: balanceDue,
+            paymentHistory,
+            notes: [
+                'Please pay any outstanding dues by the due date to avoid late fees.',
+                'Payment can be made via Bank Transfer, JazzCash, EasyPaisa or cash at the hostel office.',
+                'Thank you for your timely payment!'
+            ],
+            hostelInfo: {
+                name: 'Khan Hostel',
+                address: 'Rose Lane 5, New Lalazar Rawalpindi, Pakistan',
+                phone: '+92 302 5532270',
+                email: 'sullaimaan@gmail.com'
+            }
+        });
+    } catch (err) {
+        res.status(500).json({ message: 'Error generating invoice: ' + err.message });
+    }
+});
+
+module.exports = {getAllRentals, getRentalById, createRental, updateRental, deleteRental, studentRentDetails, generateInvoice}
