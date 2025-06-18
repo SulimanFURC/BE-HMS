@@ -144,7 +144,7 @@ const getRentalById= asyncHandler(async (req, res) => {
 //@desc    Create a new rent record (cumulative payments supported)
 //@route   POST /api/rent
 //@access  Private
-const createRental = asyncHandler(async (req, res)=> {
+const createRental = asyncHandler(async (req, res) => {
     const { stdID, RentPaidMonth, Year, RentStatus, RentType, PaidAmount } = req.body;
 
     if (!stdID || !RentPaidMonth || !Year || !PaidAmount) {
@@ -163,32 +163,49 @@ const createRental = asyncHandler(async (req, res)=> {
             res.status(404);
             throw new Error(`Student with ID ${stdID} not found.`);
         }
-
         const BasicRent = parseFloat(studentResult[0].basicRent);
 
-        // Step 2: Fetch all previous rent records for the same student, month, and year
-        const [previousRents] = await db.query(
-            `SELECT PaidAmount FROM tbl_rent WHERE stdID = ? AND RentPaidMonth = ? AND Year = ?`,
-            [stdID, RentPaidMonth, Year]
+        // Step 2: Get previous month's dues (if any)
+        let prevMonth = parseInt(RentPaidMonth) - 1;
+        let prevYear = parseInt(Year);
+        if (prevMonth === 0) {
+            prevMonth = 12;
+            prevYear = prevYear - 1;
+        }
+        let previousDues = 0;
+        const [prevRentRows] = await db.query(
+            `SELECT Dues FROM tbl_rent WHERE stdID = ? AND Year = ? AND RentPaidMonth = ? ORDER BY RentID DESC LIMIT 1`,
+            [stdID, prevYear, prevMonth]
         );
-
-        // Step 3: Calculate total paid so far (before this payment)
-        let totalPaid = 0;
-        for (const rent of previousRents) {
-            totalPaid += parseFloat(rent.PaidAmount || 0);
+        if (prevRentRows.length > 0) {
+            previousDues = parseFloat(prevRentRows[0].Dues || 0);
         }
 
-        // Step 4: Add current payment, but do not allow overpayment
-        let newTotalPaid = totalPaid + parseFloat(PaidAmount);
-        if (newTotalPaid > BasicRent) {
-            return res.status(400).json({ message: `Total paid amount (${newTotalPaid}) exceeds basic rent (${BasicRent}).`, statusCode: 400 });
-        }
+        // Step 3: Calculate total amount payable (basic rent + previous dues)
+        const totalPayable = BasicRent + previousDues;
 
-        // Step 5: Calculate dues and status
-        const newDues = BasicRent - newTotalPaid;
-        const status = newDues === 0 ? "Paid" : "Partially Paid";
+        // Step 4: Calculate total paid for this month (including this payment)
+        const [sameMonthRows] = await db.query(
+            `SELECT SUM(PaidAmount) as totalPaid FROM tbl_rent WHERE stdID = ? AND Year = ? AND RentPaidMonth = ?`,
+            [stdID, Year, RentPaidMonth]
+        );
+        let alreadyPaid = parseFloat(sameMonthRows[0].totalPaid || 0);
 
-        // Step 6: Insert the rent record
+        // If this is the first payment for this month, alreadyPaid will be 0
+
+        // Add the current payment to alreadyPaid (since we are about to insert it)
+        let totalPaidThisMonth = alreadyPaid + parseFloat(PaidAmount);
+
+
+        // Step 5: Calculate new due after payment
+        let newDue = totalPayable - totalPaidThisMonth;
+        if (newDue < 0) newDue = 0; // No negative dues
+
+        // Step 6: Determine rent status
+        let status = "Partially Paid";
+        if (newDue === 0) status = "Paid";
+
+        // Step 7: Insert the rent record
         const [insertResult] = await db.query(
             `INSERT INTO tbl_rent 
             (stdID, RentPaidMonth, Year, RentStatus, RentType, BasicRent, PaidAmount, Dues) 
@@ -201,7 +218,7 @@ const createRental = asyncHandler(async (req, res)=> {
                 RentType,
                 BasicRent,
                 PaidAmount,
-                newDues
+                newDue
             ]
         );
 
@@ -210,7 +227,7 @@ const createRental = asyncHandler(async (req, res)=> {
             throw new Error("Failed to insert the rent record.");
         }
 
-        // Step 7: Return success response
+        // Step 8: Return success response
         res.status(201).json({
             message: "Rent record created successfully.",
             rentDetails: {
@@ -221,14 +238,17 @@ const createRental = asyncHandler(async (req, res)=> {
                 RentType,
                 BasicRent,
                 PaidAmount,
-                Dues: newDues,
+                PreviousDues: previousDues,
+                TotalPayable: totalPayable,
+                Dues: newDue,
             },
         });
     } catch (error) {
+        console.log('Error creating rent record:', error);
         res.status(500);
         throw new Error(`Error creating rent record: ${error.message}`);
     }
-})
+});
 
 //@desc    Update a rent record (cumulative payments supported)
 //@route   PUT /api/rental/updateRental
@@ -270,29 +290,44 @@ const updateRental = asyncHandler(async (req, res) => {
 
         const BasicRent = parseFloat(studentResult[0].basicRent);
 
-        // Step 3: Fetch all rent records for the same student, month, and year (excluding this one)
+        // Step 3: Get previous month's dues (if any)
+        let prevMonth = parseInt(RentPaidMonth) - 1;
+        let prevYear = parseInt(Year);
+        if (prevMonth === 0) {
+            prevMonth = 12;
+            prevYear = prevYear - 1;
+        }
+        let previousDues = 0;
+        const [prevRentRows] = await db.query(
+            `SELECT Dues FROM tbl_rent WHERE stdID = ? AND Year = ? AND RentPaidMonth = ? ORDER BY RentID DESC LIMIT 1`,
+            [stdID, prevYear, prevMonth]
+        );
+        if (prevRentRows.length > 0) {
+            previousDues = parseFloat(prevRentRows[0].Dues || 0);
+        }
+
+        // Step 4: Calculate total amount payable (basic rent + previous dues)
+        const totalPayable = BasicRent + previousDues;
+
+        // Step 5: Fetch all rent records for the same student, month, and year (excluding this one)
         const [otherRents] = await db.query(
             `SELECT PaidAmount FROM tbl_rent WHERE stdID = ? AND RentPaidMonth = ? AND Year = ? AND RentID != ?`,
             [stdID, RentPaidMonth, Year, rentID]
         );
-
-        // Step 4: Calculate total paid so far (excluding this record)
+        // Step 6: Calculate total paid so far (excluding this record)
         let totalPaid = 0;
         for (const rent of otherRents) {
             totalPaid += parseFloat(rent.PaidAmount || 0);
         }
-
-        // Step 5: Add the updated payment, but do not allow overpayment
+        // Step 7: Add the updated payment
         let newTotalPaid = totalPaid + parseFloat(PaidAmount);
-        if (newTotalPaid > BasicRent) {
-            return res.status(400).json({ message: `Total paid amount (${newTotalPaid}) exceeds basic rent (${BasicRent}).`, statusCode: 400 });
-        }
-
-        // Step 6: Calculate dues and status
-        const newDues = BasicRent - newTotalPaid;
+        // Step 8: Calculate new due after payment
+        let newDues = totalPayable - newTotalPaid;
+        if (newDues < 0) newDues = 0;
+        // Step 9: Determine rent status
         const status = newDues === 0 ? "Paid" : "Partially Paid";
 
-        // Step 7: Update the rent record
+        // Step 10: Update the rent record
         const [updateResult] = await db.query(
             `UPDATE tbl_rent 
             SET RentPaidMonth = ?, 
@@ -318,7 +353,7 @@ const updateRental = asyncHandler(async (req, res) => {
             throw new Error("Failed to update the rent record.");
         }
 
-        // Step 8: Return success response
+        // Step 11: Return success response
         res.status(200).json({
             message: "Rent record updated successfully.",
             rentDetails: {
@@ -330,6 +365,8 @@ const updateRental = asyncHandler(async (req, res) => {
                 RentType,
                 BasicRent,
                 PaidAmount,
+                PreviousDues: previousDues,
+                TotalPayable: totalPayable,
                 Dues: newDues,
             },
         });
