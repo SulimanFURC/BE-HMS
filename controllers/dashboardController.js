@@ -133,10 +133,10 @@ const getMonthlyChartData = asyncHandler(async (req, res) => {
         const incomeData = await db.query(
             `SELECT Year, RentPaidMonth AS month, SUM(PaidAmount) AS totalIncome 
              FROM tbl_rent 
-             WHERE RentStatus = 'Paid' 
+             WHERE RentStatus IN ('Paid', 'Partially Paid')
              GROUP BY Year, RentPaidMonth`
         );
-
+        console.log("Income Data:", incomeData);
         const expenseData = await db.query(
             `SELECT YEAR(expDate) AS year, MONTH(expDate) AS month, SUM(expAmount) AS totalExpense 
              FROM tbl_expense 
@@ -146,10 +146,10 @@ const getMonthlyChartData = asyncHandler(async (req, res) => {
         // Map the data for each month
         const chartData = months.map(({ year, month }) => {
             const incomeRecord = incomeData[0].find(
-                (i) => i.Year === year && i.month === month
+                (i) => Number(i.Year) === year && Number(i.month) === month
             );
             const expenseRecord = expenseData[0].find(
-                (e) => e.year === year && e.month === month
+                (e) => Number(e.year) === year && Number(e.month) === month
             );
 
             const income = incomeRecord ? incomeRecord.totalIncome : 0;
