@@ -279,4 +279,66 @@ const expensesByDateRange = asyncHandler(async (req, res) => {
     }
 })
 
-module.exports = {getExpenses, getExpense, createExpense, updateExpense, deleteExpense, expensesByDateRange}
+//@desc    Get financial summary
+//@route   GET /api/financial-summary
+//@access  Private
+const getFinancialSummary = asyncHandler(async (req, res) => {
+    try {
+        const now = new Date();
+        const formatDate = (date) => date.toISOString().slice(0, 10);
+        // Always use current month
+        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        const startYear = firstDay.getFullYear();
+        const startMonth = firstDay.getMonth() + 1;
+        const endYear = lastDay.getFullYear();
+        const endMonth = lastDay.getMonth() + 1;
+        const startDate = formatDate(firstDay);
+        const endDate = formatDate(lastDay);
+
+        // Helper for rent WHERE clause (no RentStatus filter)
+        const rentWhere = `((Year > ? OR (Year = ? AND RentPaidMonth >= ?)) AND (Year < ? OR (Year = ? AND RentPaidMonth <= ?)))`;
+        const rentParams = [startYear, startYear, startMonth, endYear, endYear, endMonth];
+
+        // Total Income (PaidAmount from tbl_rent, all statuses)
+        const [incomeResult] = await db.query(
+            `SELECT SUM(PaidAmount) AS totalIncome FROM tbl_rent WHERE ${rentWhere}`,
+            rentParams
+        );
+        const totalIncome = incomeResult[0].totalIncome || 0;
+
+        // Total Expense (expAmount from tbl_expense)
+        const [expenseResult] = await db.query(
+            'SELECT SUM(expAmount) AS totalExpense FROM tbl_expense WHERE expDate BETWEEN ? AND ?',
+            [startDate, endDate]
+        );
+        const totalExpense = expenseResult[0].totalExpense || 0;
+
+        // Total Dues (Dues from tbl_rent)
+        const [duesResult] = await db.query(
+            `SELECT SUM(Dues) AS totalDues FROM tbl_rent WHERE ${rentWhere}`,
+            rentParams
+        );
+        const totalDues = duesResult[0].totalDues || 0;
+
+        // Profit/Loss for the range
+        const profitOrLoss = totalIncome - totalExpense;
+        let profitOrLossLabel = 'Break-even';
+        if (profitOrLoss > 0) profitOrLossLabel = 'Profit';
+        else if (profitOrLoss < 0) profitOrLossLabel = 'Loss';
+
+        res.status(200).json({
+            totalIncome,
+            totalExpense,
+            totalDues,
+            profitOrLoss,
+            profitOrLossLabel,
+            statusCode: 200
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: err.message });
+    }
+});
+
+module.exports = {getExpenses, getExpense, createExpense, updateExpense, deleteExpense, expensesByDateRange, getFinancialSummary}
