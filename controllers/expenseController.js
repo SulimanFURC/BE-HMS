@@ -12,20 +12,54 @@ const { uploadOnCloudinary } = require("../config/cloudinary");
 //@access  Private
 const getExpenses = asyncHandler(async (req, res) => {
     try {
-        // Default pagination values
-        const page = parseInt(req.query.page) || 1; // Default to page 1
-        const pageSize = parseInt(req.query.pageSize) || 10; // Default to 10 records per page
-
-        // Calculate offset and limit
+        // Pagination
+        const page = parseInt(req.query.page) || 1;
+        const pageSize = parseInt(req.query.pageSize) || 10;
         const offset = (page - 1) * pageSize;
         const limit = pageSize;
 
+        // Search and filter
+        const { search, startDate, endDate } = req.query;
+        let whereClauses = [];
+        let params = [];
+
+        // Search by expense ID or expense name
+        if (search) {
+            if (!isNaN(search)) {
+                whereClauses.push('expID = ?');
+                params.push(Number(search));
+            } else {
+                whereClauses.push('expName LIKE ?');
+                params.push(`%${search}%`);
+            }
+        }
+
+        // Filter by date range
+        if (startDate && endDate) {
+            whereClauses.push('expDate BETWEEN ? AND ?');
+            params.push(startDate, endDate);
+        } else if (startDate) {
+            whereClauses.push('expDate >= ?');
+            params.push(startDate);
+        } else if (endDate) {
+            whereClauses.push('expDate <= ?');
+            params.push(endDate);
+        }
+
+        const whereSQL = whereClauses.length ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
         // Get total number of records
-        const [totalRowsResult] = await db.query('SELECT COUNT(*) AS total FROM tbl_expense');
+        const [totalRowsResult] = await db.query(
+            `SELECT COUNT(*) AS total FROM tbl_expense ${whereSQL}`,
+            params
+        );
         const totalRecords = totalRowsResult[0].total;
 
         // Fetch paginated records
-        const [rows] = await db.query('SELECT * FROM tbl_expense LIMIT ? OFFSET ?', [limit, offset]);
+        const [rows] = await db.query(
+            `SELECT * FROM tbl_expense ${whereSQL} ORDER BY expDate DESC LIMIT ? OFFSET ?`,
+            [...params, limit, offset]
+        );
 
         // Calculate total pages
         const totalPages = Math.ceil(totalRecords / pageSize);
@@ -39,9 +73,9 @@ const getExpenses = asyncHandler(async (req, res) => {
             pageSize,
         });
     } catch (err) {
-        res.status(500).json({statusCode: 500, message: err.message });
+        res.status(500).json({ statusCode: 500, message: err.message });
     }
-})
+});
 
 //@desc    Get single expense by ID
 //@route   POST /api/expense

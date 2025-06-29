@@ -6,7 +6,7 @@ const calculateTotalIncome = async () => {
     const [rows] = await db.query(
         `SELECT SUM(PaidAmount) AS totalIncome 
          FROM tbl_rent 
-         WHERE RentStatus = 'Paid'`
+         WHERE RentStatus IN ('Paid', 'Partially Paid')`
     );
     return rows[0].totalIncome || 0;
 };
@@ -25,7 +25,7 @@ const calculateIncomeByMonth = async () => {
     const [rows] = await db.query(
         `SELECT Year, RentPaidMonth AS month, SUM(PaidAmount) AS income
          FROM tbl_rent 
-         WHERE RentStatus = 'Paid'
+         WHERE RentStatus IN ('Paid', 'Partially Paid')
          GROUP BY Year, RentPaidMonth
          ORDER BY Year DESC, RentPaidMonth DESC
          LIMIT 2`
